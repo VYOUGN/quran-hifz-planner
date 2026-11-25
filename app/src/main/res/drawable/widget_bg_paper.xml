@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The «ملوّن» widget background of the paper design: its tint stops, as in Designs.kt. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:centerColor="#FF6B4F27"
+        android:endColor="#FF85663A"
+        android:startColor="#FF4E3A1C"
+        android:type="linear" />
+    <corners android:radius="@dimen/widget_radius" />
+</shape>

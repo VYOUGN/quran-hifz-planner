@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.sallo.hifz.widget.WidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
+    android:description="@string/widget_week_description"
+    android:initialLayout="@layout/widget_week"
+    android:minWidth="250dp"
+    android:minHeight="56dp"
+    android:minResizeWidth="200dp"
+    android:minResizeHeight="56dp"
+    android:previewLayout="@layout/widget_week_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="3600000"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,14 @@
+.gradle/
+build/
+/local.properties
+/.idea/
+*.iml
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+.kotlin/
+# Built apps go to GitHub Releases, not the repository.
+*.apk
+# Kept on this machine only.
+/tools/dorar_passages_snippet.js

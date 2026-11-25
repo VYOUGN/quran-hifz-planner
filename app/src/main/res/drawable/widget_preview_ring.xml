@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only for the widget list's preview; the widget draws its own. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:pathData="M24,2.88 A21.12,21.12 0 1,1 24,45.12 A21.12,21.12 0 1,1 24,2.88"
+        android:strokeColor="@color/widget_track"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="5.76" />
+
+    <path
+        android:pathData="M24,2.88 A21.12,21.12 0 0,1 41.09,36.42"
+        android:strokeColor="@color/widget_title"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="5.76" />
+</vector>

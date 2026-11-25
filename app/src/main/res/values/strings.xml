@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">جدول الحفظ</string>
+    <string name="widget_title">درس اليوم</string>
+    <string name="widget_description">درس اليوم من خططك</string>
+    <string name="widget_empty">ما عندك خطط للحين. افتح التطبيق وأنشئ خطتك.</string>
+    <string name="widget_list_label">قائمة الخطط</string>
+    <string name="widget_compact_label">درس اليوم المختصر</string>
+    <string name="widget_compact_description">درس خطة واحدة بخط كبير مع شريط التقدم</string>
+    <string name="widget_ring_label">حلقة التقدم</string>
+    <string name="widget_ring_description">نسبة إنجاز خطتك</string>
+    <string name="widget_week_label">شريط الأسبوع</string>
+    <string name="widget_week_description">أيام الأسبوع ودرس اليوم</string>
+    <string name="widget_board_label">جدول الحفظ الشامل</string>
+    <string name="widget_board_description">الدرس والمراجعات والأسبوع والتقدم لخطة واحدة</string>
+    <string name="widget_config_title">الودجت</string>
+    <string name="widget_done">تم</string>
+</resources>

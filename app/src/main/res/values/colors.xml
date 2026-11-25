@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="window_background">#F8FAF6</color>
+    <color name="launcher_background">#1E6B52</color>
+    <color name="widget_background">#F2F5F0</color>
+    <color name="widget_title">#1E6B52</color>
+    <color name="widget_text">#191C1A</color>
+    <color name="widget_muted">#404943</color>
+    <color name="widget_missed">#BA1A1A</color>
+    <color name="widget_today">#B7791F</color>
+    <color name="widget_idle">#C0C9C1</color>
+    <color name="widget_track">#DCE5DD</color>
+</resources>

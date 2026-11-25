@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The days of this week, Sunday first: done, missed, today or still to come. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/week_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day1_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ح"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day1_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day2_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ن"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day2_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day3_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ث"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day3_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day4_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ر"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day4_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day5_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="خ"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day5_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day6_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ج"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day6_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/day7_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="س"
+            android:includeFontPadding="false"
+            android:textColor="@color/widget_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/day7_dot"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:layout_marginTop="3dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/widget_dot" />
+    </LinearLayout>
+</LinearLayout>
