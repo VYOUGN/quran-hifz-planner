@@ -67,6 +67,7 @@ import com.sallo.hifz.HifzApp
 import com.sallo.hifz.data.Item
 import com.sallo.hifz.data.SessionEntity
 import com.sallo.hifz.data.catchUpOptions
+import com.sallo.hifz.data.hasMain
 import java.time.LocalDate
 import com.sallo.hifz.R
 import com.sallo.hifz.findActivity
@@ -270,12 +271,15 @@ fun PlanTableScreen(
                     vm.postpone(row.index, date)
                     openRow = null
                 },
-                repeat = remember(row, state.rows, state.plan) {
-                    state.plan?.let { plan -> Repeats.options(plan, state.rows.map { it.session }, row.index, LocalDate.now()) }
+                repeatsFor = { edited ->
+                    state.plan?.let { plan ->
+                        val rows = state.rows.map { it.session }.toMutableList().apply { set(row.index, edited) }
+                        Repeats.options(plan, rows, row.index, LocalDate.now())
+                    }.orEmpty()
                 },
-                mainItem = if (state.plan?.includeNew == false) Item.MAJOR else Item.NEW,
-                onRepeat = { edited, way ->
-                    vm.repeat(edited, way)
+                extraSession = state.plan?.let { plan -> state.settings?.hasSeparateSchedules != true && !row.session.hasMain(plan) } == true,
+                onRepeat = { edited, option, way ->
+                    vm.repeat(edited, option, way)
                     openRow = null
                 },
             )

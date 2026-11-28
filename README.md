@@ -34,7 +34,7 @@ An Android app that turns a Quran memorization plan into a day-by-day table: the
 - Gregorian and Hijri (Umm al-Qura) dates, with an adjustment of ±days.
 - Cards and table views, ticks, grades, notes, and mistake and alert counters for every recitation.
 - Missed lessons: move them forward automatically, catch up, or mark them done.
-- Too many mistakes? Repeat the lesson in place of the next session (every later lesson moves one session on), or on a free day before it.
+- Too many mistakes? Repeat the lesson, the minor review or the major review. In the next session, a lesson or a major review takes the next one's place and every later one moves one session on, while a minor review is added to the next one. Or repeat it on a free day before its next session.
 - Vacations: lessons wait until after them, and they never break a streak.
 - Copy a plan, print the table or save it as PDF, and write sessions to the phone's calendar.
 
@@ -115,7 +115,7 @@ python tools/gen_widget_layouts.py app/src/main/res
 - التاريخ الميلادي والهجري (أم القرى) مع تعديل الهجري.
 - عرض بالبطاقات أو بالجدول، مع التأشير والتقدير والملاحظات، وعدّاد «أخطاء» و«تنبيهات» لكل تسميع.
 - الدروس الفائتة: ترحيل تلقائي، أو تكمّلها من جديد، أو تعوّضها، أو تعلّمها كمنجزة.
-- أخطاؤك كثيرة؟ أعد الدرس بدل الجلسة الجاية (وكل درس بعده ياخذ مكان اللي بعده)، أو بجلسة زيادة في يوم فاضي قبلها.
+- أخطاؤك كثيرة؟ تقدر تعيد الدرس أو المراجعة الصغرى أو الكبرى. في الجلسة الجاية: الدرس والمراجعة الكبرى ياخذون مكان اللي بعدهم، وكل واحد بعدهم يتأخر جلسة، والمراجعة الصغرى تنضاف للمراجعة الصغرى الجاية. أو تعيدها بجلسة زيادة في يوم فاضي قبل جلستها الجاية.
 - الإجازة: الدروس تتأجل لبعدها، وما تقطع «متتالية».
 - نسخ الخطة، وطباعة الجدول أو حفظه PDF، ونقل الجلسات إلى تقويم الجوال.
 

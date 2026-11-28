@@ -87,8 +87,17 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
             regenerate(plan, continued, PlanTemplate.fromName(plan.template), fromIdx)
             return
         }
-        val dates = Missed.postpone(sessions.map { it.localDate }, fromIdx, newDate, plan.toSettings().calendar)
-        setDates(sessions, dates)
+        val target = sessions.getOrNull(fromIdx) ?: return
+        val main = sessions.filter { it.hasMain(plan) }
+        val after = if (target.hasMain(plan)) {
+            val dates = Missed.postpone(main.map { it.localDate }, main.indexOfFirst { it.id == target.id }, newDate, settings.calendar)
+            withMainDates(plan, sessions, dates, LocalDate.now())
+        } else {
+            // A review studied again on a day of its own («إعادة»): only it moves.
+            val moved = sessions.map { if (it.id == target.id) it.copy(date = newDate.toEpochDay()) else it }
+            withMainDates(plan, moved, main.map { it.localDate }, LocalDate.now())
+        }
+        db.withTransaction { saveRows(plan.id, sessions, after) }
         onChanged()
     }
 
@@ -123,7 +132,7 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
                         )
                     }
                 } else {
-                    setDates(main, moved)
+                    db.withTransaction { saveRows(plan.id, before, withMainDates(plan, before, moved, today)) }
                 }
             }
         }
@@ -132,18 +141,18 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
     }
 
     /**
-     * «إعادة الدرس»: [edited] (the row as the sheet left it) is saved, and its lesson is studied again
-     * by [way]. The row itself was recited, so it counts as done, with its grade and mistakes; left
-     * open it would be a missed lesson, and «ترحيل» would move the lessons a second time. Returns the
+     * «إعادة»: [edited] (the row as the sheet left it) is saved, and its [item] is studied again by
+     * [way]. The item itself was recited, so it counts as done, with its grade and mistakes; a lesson
+     * left open would be a missed lesson, and «ترحيل» would move the lessons a second time. Returns the
      * rows as they were, for «تراجع», or null when [way] does not fit.
      */
-    suspend fun repeat(plan: PlanEntity, recited: SessionEntity, way: RepeatWay, today: LocalDate): List<SessionEntity>? {
-        val edited = recited.withMainDone(plan)
+    suspend fun repeat(plan: PlanEntity, recited: SessionEntity, item: Item, way: RepeatWay, today: LocalDate): List<SessionEntity>? {
+        val edited = recited.withDone(item, true)
         val before = dao.sessions(plan.id)
         val at = before.indexOfFirst { it.id == edited.id }
         if (at < 0) return null
         val rows = before.toMutableList().apply { set(at, edited) }
-        val after = Repeats.apply(plan, rows, at, way, today) ?: return null
+        val after = Repeats.apply(plan, rows, at, item, way, today) ?: return null
         db.withTransaction {
             dao.updateSessions(listOf(edited))
             dao.deleteSessionsFrom(plan.id, edited.idx + 1)
@@ -177,13 +186,14 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
             val rows = dao.sessions(plan.id)
             val main = rows.filter { it.hasMain(updated) }
             val dates = main.map { it.localDate }
-            val (first, start) = Missed.afterVacation(dates, main.map { it.mainDone(updated) }, from, today, settings.calendar, pullBack)
-                ?: return@withTransaction
+            val move = Missed.afterVacation(dates, main.map { it.mainDone(updated) }, from, today, settings.calendar, pullBack)
             if (settings.hasSeparateSchedules) {
                 // Each track has its own days: plan everything from that row again, around the vacation.
-                postpone(updated, main[first].idx, start)
+                if (move != null) postpone(updated, main[move.first].idx, move.second)
             } else {
-                setDates(main, Missed.shift(dates, first, start, settings.calendar))
+                // A review studied again on a day of its own leaves the vacation even when no lesson moves.
+                val moved = move?.let { (first, start) -> Missed.shift(dates, first, start, settings.calendar) } ?: dates
+                saveRows(plan.id, rows, withMainDates(updated, rows, moved, today))
             }
         }
         onChanged()
@@ -232,11 +242,17 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
         onChanged()
     }
 
-    private suspend fun setDates(sessions: List<SessionEntity>, dates: List<LocalDate>) {
-        val changed = sessions.mapIndexedNotNull { i, s ->
-            val day = dates.getOrNull(i)?.toEpochDay() ?: return@mapIndexedNotNull null
-            if (day != s.date) s.copy(date = day) else null
-        }
+    /**
+     * Writes [after] (the plan's rows as they become, renumbered) over [before], inside a transaction:
+     * the rows from the first one whose place changed are written again, and the others only when they changed.
+     */
+    private suspend fun saveRows(planId: Long, before: List<SessionEntity>, after: List<SessionEntity>) {
+        val from = after.indices.firstOrNull { it >= before.size || after[it].id != before[it].id } ?: after.size
+        val changed = after.take(from).filterIndexed { i, r -> r != before[i] }
         if (changed.isNotEmpty()) dao.updateSessions(changed)
+        if (from < after.size) {
+            dao.deleteSessionsFrom(planId, after[from].idx)
+            dao.insertSessions(after.drop(from))
+        }
     }
 }

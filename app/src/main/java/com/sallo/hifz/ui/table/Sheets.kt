@@ -81,11 +81,14 @@ fun RowSheet(
     onDismiss: () -> Unit,
     onSave: (SessionEntity) -> Unit,
     onPostpone: (LocalDate) -> Unit,
-    /** «إعادة الدرس» for this row, or null when it is not a session to repeat. */
-    repeat: RepeatOptions? = null,
-    /** The row's main item: the lesson, or the major review in a plan of reviews only. */
-    mainItem: Item = Item.NEW,
-    onRepeat: (SessionEntity, RepeatWay) -> Unit = { _, _ -> },
+    /**
+     * «إعادة» for the lesson and reviews of the row as the sheet has it (a major review written here
+     * counts before it is saved); empty when it is not a session to repeat.
+     */
+    repeatsFor: (SessionEntity) -> List<RepeatOptions> = { emptyList() },
+    /** A review studied again on a day of its own, while every track keeps the plan's days: postponing moves only it. */
+    extraSession: Boolean = false,
+    onRepeat: (SessionEntity, RepeatOptions, RepeatWay) -> Unit = { _, _, _ -> },
 ) {
     val s = row.session
     var texts by remember { mutableStateOf(row.items.associate { it.item to if (it.empty) "" else it.text }) }
@@ -95,7 +98,7 @@ fun RowSheet(
     var counts by remember { mutableStateOf(Item.entries.associateWith { s.mistakes(it) to s.alerts(it) }) }
     var postponing by remember { mutableStateOf(false) }
     var pickingSurahs by remember { mutableStateOf(false) }
-    var repeating by remember { mutableStateOf(false) }
+    var repeating by remember { mutableStateOf<Item?>(null) }
 
     fun result(): SessionEntity {
         var out = s.copy(note = note.trim().ifEmpty { null })
@@ -116,6 +119,8 @@ fun RowSheet(
         }
         return out
     }
+    // Only the texts change what can be repeated: the row's ticks and counts are its own.
+    val repeats = remember(texts) { repeatsFor(result()) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
@@ -159,26 +164,36 @@ fun RowSheet(
                 label = { Text("ملاحظة") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (repeat != null) {
-                val what = if (mainItem == Item.NEW) "الدرس" else "المراجعة"
-                val score = grades.getValue(mainItem)
-                val struggled = (score in 1 until GradeLevel.PASS) || (counts.getValue(mainItem).first ?: 0) >= MANY_MISTAKES
-                val possible = repeat.blocked == null || repeat.extraDay != null
+            if (repeats.isNotEmpty()) {
+                // Graded to be repeated, or many mistakes: offered up front, unless its next session already goes over it.
+                fun struggled(o: RepeatOptions) =
+                    grades.getValue(o.item) in 1 until GradeLevel.PASS || (counts.getValue(o.item).first ?: 0) >= MANY_MISTAKES
+                val possible = repeats.filter { it.possible }
+                val hard = repeats.filter { struggled(it) }
+                val offer = hard.filter { it.possible && !it.repeated }
                 when {
-                    !possible -> Hint("إعادة $what: ${repeat.blocked}")
-                    struggled -> Surface(
+                    possible.isEmpty() -> Unit
+                    offer.isNotEmpty() -> Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("أخطاؤك كثيرة في هذا $what. تبغى تعيده؟", fontWeight = FontWeight.Bold)
-                            Button(onClick = { repeating = true }, modifier = Modifier.fillMaxWidth()) { Text("أعد $what") }
+                            Text(manyMistakes(offer), fontWeight = FontWeight.Bold)
+                            offer.forEach { o ->
+                                Button(onClick = { repeating = o.item }, modifier = Modifier.fillMaxWidth()) { Text("أعد ${o.noun}") }
+                            }
                         }
                     }
-                    else -> OutlinedButton(onClick = { repeating = true }, modifier = Modifier.fillMaxWidth()) { Text("أعد $what") }
+                    else -> OutlinedButton(onClick = { repeating = possible.first().item }, modifier = Modifier.fillMaxWidth()) {
+                        Text(repeatLabel(possible))
+                    }
                 }
+                hard.filter { it.repeated }.forEach { Hint("${it.noun} ${if (it.feminine) "معادة" else "معاد"} في الجلسة الجاية.") }
+                // Why one that needs it, or the only one there is, cannot be repeated.
+                val cannot = hard.filter { !it.possible } + if (possible.isEmpty()) repeats.take(1) else emptyList()
+                cannot.filterNot { it.repeated }.distinct().forEach { Hint("إعادة ${it.noun}: ${it.blocked}") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (row.hasDate) {
@@ -188,7 +203,9 @@ fun RowSheet(
             }
             if (row.hasDate) {
                 Hint(
-                    if (separateDays) {
+                    if (extraSession) {
+                        "التأجيل ينقل هذي الجلسة بس للتاريخ اللي تختاره."
+                    } else if (separateDays) {
                         "التأجيل يرتّب هذا اليوم واللي بعده من جديد ابتداءً من التاريخ اللي تختاره، وكل مسار على أيامه."
                     } else {
                         "التأجيل ينقل هذي الجلسة واللي بعدها: هذي للتاريخ اللي تختاره، والباقي على أيام الجدول."
@@ -208,14 +225,14 @@ fun RowSheet(
             },
         )
     }
-    if (repeating && repeat != null) {
+    repeating?.let { item ->
         RepeatDialog(
-            options = repeat,
-            what = if (mainItem == Item.NEW) "الدرس" else "المراجعة",
-            onDismiss = { repeating = false },
-            onPick = { way ->
-                repeating = false
-                onRepeat(result(), way)
+            options = repeats.filter { it.possible },
+            initial = item,
+            onDismiss = { repeating = null },
+            onPick = { option, way ->
+                repeating = null
+                onRepeat(result(), option, way)
             },
         )
     }
@@ -317,44 +334,76 @@ private fun CountStepper(label: String, value: Int?, modifier: Modifier, onChang
     }
 }
 
-/** Mistakes on the main item from which «إعادة الدرس» is offered up front. */
+/** Mistakes on a lesson or review from which «إعادة» is offered up front. */
 private const val MANY_MISTAKES = 5
 
-/** «أعد الدرس»: in place of the next session, or on a free day before it. */
+/** «أخطاؤك كثيرة في هذا الدرس. تبغى تعيده؟», or the items with many mistakes when there are several. */
+private fun manyMistakes(items: List<RepeatOptions>): String {
+    val o = items.singleOrNull() ?: return "أخطاؤك كثيرة في ${items.joinToString(" و") { it.noun }}. تبغى تعيدها؟"
+    return if (o.feminine) "أخطاؤك كثيرة في هذي ${o.noun}. تبغى تعيدها؟" else "أخطاؤك كثيرة في هذا ${o.noun}. تبغى تعيده؟"
+}
+
+/** «أعد الدرس», «أعد المراجعة الكبرى», or «أعد الدرس أو المراجعة» when the choice is in the dialog. */
+private fun repeatLabel(items: List<RepeatOptions>): String = when {
+    items.size == 1 -> "أعد ${items[0].noun}"
+    items.any { it.item == Item.NEW } -> "أعد الدرس أو المراجعة"
+    else -> "أعد المراجعة"
+}
+
+/** What «في الجلسة الجاية» does to [o]'s sessions. */
+private fun nextSessionText(o: RepeatOptions): String {
+    val finish = if (o.finishBefore != null && o.finishAfter != null) {
+        " الختم يصير ${DateText.long(o.finishAfter)} بدل ${DateText.long(o.finishBefore)}."
+    } else {
+        ""
+    }
+    return when {
+        o.item == Item.NEW -> "بدل الدرس الجاي، وكل درس بعده ياخذ مكان اللي بعده.$finish"
+        o.main -> "بدل المراجعة الجاية، وكل مراجعة بعدها تاخذ مكان اللي بعدها.$finish"
+        o.item == Item.MAJOR -> "بدل المراجعة الكبرى الجاية، وكل مراجعة بعدها تاخذ مكان اللي بعدها، والحفظ ما يتغيّر."
+        else -> "مع المراجعة الصغرى الجاية، فتصير: ${o.merged}."
+    }
+}
+
+/**
+ * «أعد الدرس» or a review: in its next session (for a lesson or a major review, in place of the next
+ * one), or on an extra day before it. [options] are the items that can be repeated, [initial] the one
+ * picked first.
+ */
 @Composable
-private fun RepeatDialog(options: RepeatOptions, what: String, onDismiss: () -> Unit, onPick: (RepeatWay) -> Unit) {
-    var way by remember { mutableStateOf(if (options.blocked == null) RepeatWay.NEXT_SESSION else RepeatWay.EXTRA_DAY) }
+private fun RepeatDialog(options: List<RepeatOptions>, initial: Item, onDismiss: () -> Unit, onPick: (RepeatOptions, RepeatWay) -> Unit) {
+    var item by remember { mutableStateOf(initial) }
+    val o = options.firstOrNull { it.item == item } ?: options.firstOrNull() ?: return
+    var way by remember(o.item) { mutableStateOf(if (o.blocked == null) RepeatWay.NEXT_SESSION else RepeatWay.EXTRA_DAY) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("أعد $what") },
+        title = { Text("أعد ${o.noun}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Hint("هذي الجلسة تنحسب منجزة وتبقى أخطاؤها، والإعادة جلسة جديدة.")
-                if (options.blocked == null) {
-                    val day = options.nextDay?.let { " ${DateText.withWeekday(it)}" }.orEmpty()
-                    val finish = if (options.finishBefore != null && options.finishAfter != null) {
-                        " الختم يصير ${DateText.long(options.finishAfter)} بدل ${DateText.long(options.finishBefore)}."
-                    } else {
-                        ""
+                if (options.size > 1) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        options.forEach { c ->
+                            FilterChip(selected = c.item == o.item, onClick = { item = c.item }, label = { Text(c.item.label) })
+                        }
                     }
-                    OptionRow(
-                        "في الجلسة الجاية$day",
-                        "بدل الدرس الجاي، وكل درس بعده ياخذ مكان اللي بعده.$finish",
-                        way == RepeatWay.NEXT_SESSION,
-                    ) { way = RepeatWay.NEXT_SESSION }
-                } else {
-                    Hint("في الجلسة الجاية: ${options.blocked}")
                 }
-                options.extraDay?.let { day ->
+                Hint("اللي سمّعته في هذي الجلسة ينحسب منجز وتبقى أخطاؤه.")
+                if (o.blocked == null) {
+                    val day = o.nextDay?.let { " ${DateText.withWeekday(it)}" }.orEmpty()
+                    OptionRow("في الجلسة الجاية$day", nextSessionText(o), way == RepeatWay.NEXT_SESSION) { way = RepeatWay.NEXT_SESSION }
+                } else {
+                    Hint("في الجلسة الجاية: ${o.blocked}")
+                }
+                o.extraDay?.let { day ->
                     OptionRow(
                         "بجلسة زيادة ${DateText.withWeekday(day)}",
-                        "في يوم فاضي قبل الجلسة الجاية، وجدولك ما يتغيّر.",
+                        if (o.extraJoins) "مع اللي عليك ذاك اليوم، وجدولك ما يتغيّر." else "في يوم فاضي قبل الجلسة الجاية، وجدولك ما يتغيّر.",
                         way == RepeatWay.EXTRA_DAY,
                     ) { way = RepeatWay.EXTRA_DAY }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onPick(way) }) { Text("أعده") } },
+        confirmButton = { TextButton(onClick = { onPick(o, way) }) { Text(if (o.feminine) "أعدها" else "أعده") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
     )
 }

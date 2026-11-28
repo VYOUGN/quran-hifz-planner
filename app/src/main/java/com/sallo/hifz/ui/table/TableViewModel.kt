@@ -1,5 +1,6 @@
 package com.sallo.hifz.ui.table
 
+import com.sallo.hifz.data.RepeatOptions
 import com.sallo.hifz.data.RepeatWay
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -179,14 +180,18 @@ class TableViewModel(private val app: HifzApp, planId: Long) : ViewModel() {
         }
     }
 
-    /** «إعادة الدرس»: saves [edited] and studies its lesson again by [way]. */
-    fun repeat(edited: SessionEntity, way: RepeatWay) {
+    /** «إعادة»: saves [edited] and studies the item of [option] again by [way]. */
+    fun repeat(edited: SessionEntity, option: RepeatOptions, way: RepeatWay) {
         val plan = state.value.plan ?: return
         viewModelScope.launch {
-            val before = repo.repeat(plan, edited, way, LocalDate.now()) ?: return@launch
-            val message = when (way) {
-                RepeatWay.NEXT_SESSION -> "صار الدرس في الجلسة الجاية، والدروس بعده تأخّرت جلسة"
-                RepeatWay.EXTRA_DAY -> "أضفنا جلسة لإعادة الدرس"
+            val before = repo.repeat(plan, edited, option.item, way, LocalDate.now()) ?: return@launch
+            val extra = option.extraDay
+            val message = when {
+                way == RepeatWay.EXTRA_DAY && option.extraJoins && extra != null -> "أضفنا إعادة ${option.noun} على جلسة ${DateText.weekday(extra)}"
+                way == RepeatWay.EXTRA_DAY -> "أضفنا جلسة لإعادة ${option.noun}"
+                option.item == Item.NEW -> "صار الدرس في الجلسة الجاية، والدروس بعده تأخّرت جلسة"
+                option.item == Item.MINOR -> "زدناها على المراجعة الصغرى في الجلسة الجاية"
+                else -> "صارت ${option.noun} في الجلسة الجاية، واللي بعدها تأخّرت جلسة"
             }
             _undo.emit(Undoable(message, plan.id, before))
         }

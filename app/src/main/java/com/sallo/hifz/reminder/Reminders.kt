@@ -22,6 +22,7 @@ import com.sallo.hifz.common.PlanText
 import com.sallo.hifz.common.Plurals
 import com.sallo.hifz.data.PlanEntity
 import com.sallo.hifz.data.SessionEntity
+import com.sallo.hifz.data.hasMain
 import com.sallo.hifz.data.mainDone
 import com.sallo.hifz.data.missedCount
 import com.sallo.hifz.data.pending
@@ -183,7 +184,8 @@ object TodayReminder {
             val rows = app.repository.getSessions(plan.id)
             val focus = when {
                 plan.id in ticked && !s.hasDates -> null
-                s.hasDates -> rows.firstOrNull { it.localDate == today && if (s.hasSeparateSchedules) it.pending(plan) else !it.mainDone(plan) }
+                // A review-only day (its own days, or a review studied again on a day of its own) is open while its reviews are.
+                s.hasDates -> rows.firstOrNull { it.localDate == today && if (s.hasSeparateSchedules || !it.hasMain(plan)) it.pending(plan) else !it.mainDone(plan) }
                 else -> rows.firstOrNull { !it.mainDone(plan) }
             }
             val missed = if (s.hasDates && !followUp) missedCount(plan, rows, today) else 0
