@@ -162,6 +162,21 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
         return before
     }
 
+    /**
+     * «تقديم»: [edited] (the next session as the sheet left it) is saved, and its [item] comes to today.
+     * Returns the rows as they were, for «تراجع», or null when it cannot.
+     */
+    suspend fun advance(plan: PlanEntity, edited: SessionEntity, item: Item, today: LocalDate): List<SessionEntity>? {
+        val before = dao.sessions(plan.id)
+        val at = before.indexOfFirst { it.id == edited.id }
+        if (at < 0) return null
+        val rows = before.toMutableList().apply { set(at, edited) }
+        val after = Repeats.advance(plan, rows, at, item, today) ?: return null
+        db.withTransaction { saveRows(plan.id, before, after) }
+        onChanged()
+        return before
+    }
+
     /** «إجازة»: adds [vacation] to the plan, and moves what is still to do out of it. */
     suspend fun addVacation(plan: PlanEntity, vacation: Vacation, today: LocalDate) =
         changeVacations(plan, vacation.start, today, pullBack = false) { (it + vacation).distinct() }
@@ -247,11 +262,12 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
      * the rows from the first one whose place changed are written again, and the others only when they changed.
      */
     private suspend fun saveRows(planId: Long, before: List<SessionEntity>, after: List<SessionEntity>) {
-        val from = after.indices.firstOrNull { it >= before.size || after[it].id != before[it].id } ?: after.size
+        val n = maxOf(before.size, after.size)
+        val from = (0 until n).firstOrNull { it >= before.size || it >= after.size || after[it].id != before[it].id } ?: n
         val changed = after.take(from).filterIndexed { i, r -> r != before[i] }
         if (changed.isNotEmpty()) dao.updateSessions(changed)
-        if (from < after.size) {
-            dao.deleteSessionsFrom(planId, after[from].idx)
+        if (from < n) {
+            dao.deleteSessionsFrom(planId, before.getOrNull(from)?.idx ?: after[from].idx)
             dao.insertSessions(after.drop(from))
         }
     }

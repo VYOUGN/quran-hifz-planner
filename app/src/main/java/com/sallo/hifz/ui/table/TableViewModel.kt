@@ -1,5 +1,6 @@
 package com.sallo.hifz.ui.table
 
+import com.sallo.hifz.data.AdvanceOptions
 import com.sallo.hifz.data.RepeatOptions
 import com.sallo.hifz.data.RepeatWay
 import androidx.lifecycle.ViewModel
@@ -192,6 +193,19 @@ class TableViewModel(private val app: HifzApp, planId: Long) : ViewModel() {
                 option.item == Item.NEW -> "صار الدرس في الجلسة الجاية، والدروس بعده تأخّرت جلسة"
                 option.item == Item.MINOR -> "زدناها على المراجعة الصغرى في الجلسة الجاية"
                 else -> "صارت ${option.noun} في الجلسة الجاية، واللي بعدها تأخّرت جلسة"
+            }
+            _undo.emit(Undoable(message, plan.id, before))
+        }
+    }
+
+    /** «تقديم»: saves [edited] (the next session) and brings the item of [option] to today. */
+    fun advance(edited: SessionEntity, option: AdvanceOptions) {
+        val plan = state.value.plan ?: return
+        viewModelScope.launch {
+            val before = repo.advance(plan, edited, option.item, LocalDate.now()) ?: return@launch
+            val message = when {
+                option.item == Item.NEW -> "صار الدرس الجاي اليوم، والدروس بعده تقدّمت جلسة"
+                else -> "صارت ${option.noun} الجاية اليوم، واللي بعدها تقدّمت جلسة"
             }
             _undo.emit(Undoable(message, plan.id, before))
         }

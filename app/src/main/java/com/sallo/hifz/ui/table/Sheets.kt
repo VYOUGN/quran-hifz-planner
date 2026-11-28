@@ -2,6 +2,7 @@
 
 package com.sallo.hifz.ui.table
 
+import com.sallo.hifz.data.AdvanceOptions
 import com.sallo.hifz.data.RepeatOptions
 import com.sallo.hifz.data.RepeatWay
 import androidx.compose.material3.Surface
@@ -89,6 +90,9 @@ fun RowSheet(
     /** A review studied again on a day of its own, while every track keeps the plan's days: postponing moves only it. */
     extraSession: Boolean = false,
     onRepeat: (SessionEntity, RepeatOptions, RepeatWay) -> Unit = { _, _, _ -> },
+    /** «تقديم» of the row as the sheet has it: its lesson or review brought to today, when it is the next one. */
+    advancesFor: (SessionEntity) -> List<AdvanceOptions> = { emptyList() },
+    onAdvance: (SessionEntity, AdvanceOptions) -> Unit = { _, _ -> },
 ) {
     val s = row.session
     var texts by remember { mutableStateOf(row.items.associate { it.item to if (it.empty) "" else it.text }) }
@@ -121,6 +125,8 @@ fun RowSheet(
     }
     // Only the texts change what can be repeated: the row's ticks and counts are its own.
     val repeats = remember(texts) { repeatsFor(result()) }
+    val advances = remember(texts) { advancesFor(result()) }
+    var advancing by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
@@ -195,6 +201,18 @@ fun RowSheet(
                 val cannot = hard.filter { !it.possible } + if (possible.isEmpty()) repeats.take(1) else emptyList()
                 cannot.filterNot { it.repeated }.distinct().forEach { Hint("إعادة ${it.noun}: ${it.blocked}") }
             }
+            if (advances.isNotEmpty()) {
+                val open = advances.filter { it.blocked == null }
+                if (open.isEmpty()) {
+                    advances.first().let { Hint("تقديم ${it.noun}: ${it.blocked}") }
+                } else {
+                    val label = when {
+                        open.size == 1 -> open[0].noun
+                        else -> "الدرس أو المراجعة"
+                    }
+                    OutlinedButton(onClick = { advancing = true }, modifier = Modifier.fillMaxWidth()) { Text("قدّم $label لليوم") }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (row.hasDate) {
                     OutlinedButton(onClick = { postponing = true }, modifier = Modifier.weight(1f)) { Text("تأجيل") }
@@ -222,6 +240,16 @@ fun RowSheet(
             onPick = {
                 postponing = false
                 onPostpone(it)
+            },
+        )
+    }
+    if (advancing) {
+        AdvanceDialog(
+            options = advances.filter { it.blocked == null },
+            onDismiss = { advancing = false },
+            onPick = { option ->
+                advancing = false
+                onAdvance(result(), option)
             },
         )
     }
@@ -404,6 +432,43 @@ private fun RepeatDialog(options: List<RepeatOptions>, initial: Item, onDismiss:
             }
         },
         confirmButton = { TextButton(onClick = { onPick(o, way) }) { Text(if (o.feminine) "أعدها" else "أعده") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+    )
+}
+
+/** «قدّم لليوم»: the next lesson or review comes to today, and the ones after it move one session earlier. */
+@Composable
+private fun AdvanceDialog(options: List<AdvanceOptions>, onDismiss: () -> Unit, onPick: (AdvanceOptions) -> Unit) {
+    var item by remember { mutableStateOf(options.firstOrNull()?.item) }
+    val o = options.firstOrNull { it.item == item } ?: options.firstOrNull() ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("قدّم ${o.noun} لليوم") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (options.size > 1) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        options.forEach { c ->
+                            FilterChip(selected = c.item == o.item, onClick = { item = c.item }, label = { Text(c.item.label) })
+                        }
+                    }
+                }
+                val finish = if (o.finishBefore != null && o.finishAfter != null && o.finishBefore != o.finishAfter) {
+                    " الختم يصير ${DateText.long(o.finishAfter)} بدل ${DateText.long(o.finishBefore)}."
+                } else {
+                    ""
+                }
+                Text(
+                    when {
+                        o.item == Item.NEW -> "تحفظه اليوم، وكل درس بعده ياخذ مكان اللي قبله.$finish"
+                        o.main -> "تراجعها اليوم، وكل مراجعة بعدها تاخذ مكان اللي قبلها.$finish"
+                        else -> "تراجعها اليوم، وكل مراجعة كبرى بعدها تاخذ مكان اللي قبلها، والحفظ ما يتغيّر."
+                    },
+                )
+                Hint(if (o.joins) "تنضاف لجلسة اليوم." else "تصير جلسة اليوم.")
+            }
+        },
+        confirmButton = { TextButton(onClick = { onPick(o) }) { Text(if (o.feminine) "قدّمها" else "قدّمه") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
     )
 }

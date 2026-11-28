@@ -282,6 +282,16 @@ fun PlanTableScreen(
                     vm.repeat(edited, option, way)
                     openRow = null
                 },
+                advancesFor = { edited ->
+                    state.plan?.let { plan ->
+                        val rows = state.rows.map { it.session }.toMutableList().apply { set(row.index, edited) }
+                        Repeats.advanceOptions(plan, rows, row.index, LocalDate.now())
+                    }.orEmpty()
+                },
+                onAdvance = { edited, option ->
+                    vm.advance(edited, option)
+                    openRow = null
+                },
             )
         }
     }

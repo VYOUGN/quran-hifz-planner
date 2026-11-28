@@ -254,6 +254,80 @@ class RepeatTest {
     }
 
     @Test
+    fun theNextLessonComesToTodayAndTheRestMoveOneSessionEarlier() {
+        val (plan, built) = plan()
+        // Up to Sunday 8 November done; Monday 9th has no session.
+        val rows = built.mapIndexed { i, r -> if (i <= 3) r.copy(newDone = true) else r }
+        val today = d(11, 9)
+        assertTrue(Repeats.advanceOptions(plan, rows, 5, today).isEmpty())
+        val opts = Repeats.advanceOptions(plan, rows, 4, today).single()
+        assertEquals(Item.NEW, opts.item)
+        assertNull(opts.blocked)
+        assertFalse(opts.joins)
+        assertEquals(rows.last().localDate, opts.finishBefore)
+        assertEquals(rows[rows.size - 2].localDate, opts.finishAfter)
+
+        val out = Repeats.advance(plan, rows, 4, Item.NEW, today)!!
+        assertEquals(rows.size, out.size)
+        assertEquals(out.indices.toList(), out.map { it.idx })
+        for (k in 0..3) assertEquals(rows[k], out[k])
+        assertEquals(today, out[4].localDate)
+        assertEquals(rows[4].lesson, out[4].lesson)
+        assertEquals(rows[4].minorRanges, out[4].minorRanges)
+        assertEquals(0L, out[4].id)
+        // Each later day takes the lesson after its own; the plan's last session goes.
+        for (k in 5 until out.size) {
+            assertEquals(rows[k - 1].date, out[k].date)
+            assertEquals(rows[k - 1].id, out[k].id)
+            assertEquals(rows[k].lesson, out[k].lesson)
+        }
+
+        // A session today already: the brought lesson is a second one after it.
+        val sunday = Repeats.advance(plan, rows, 4, Item.NEW, d(11, 8))!!
+        assertEquals(listOf(d(11, 8), d(11, 8)), listOf(sunday[3].localDate, sunday[4].localDate))
+        assertEquals(rows[4].lesson, sunday[4].lesson)
+
+        // Missed lessons come first.
+        assertNotNull(Repeats.advanceOptions(plan, built, 4, today).single().blocked)
+    }
+
+    @Test
+    fun theNextMajorReviewComesToTodayAndTheLessonsStay() {
+        val (plan, built) = plan()
+        val rows = built.mapIndexed { i, r -> if (i <= 3) r.copy(newDone = true) else r }.toMutableList().apply {
+            set(4, get(4).copy(majorText = "الملك"))
+            set(5, get(5).copy(majorText = "نوح"))
+        }
+        val today = d(11, 9)
+        val major = Repeats.advanceOptions(plan, rows, 4, today).single { it.item == Item.MAJOR }
+        assertFalse(major.main)
+        assertNull(major.blocked)
+        assertNull(major.finishAfter)
+        val out = Repeats.advance(plan, rows, 4, Item.MAJOR, today)!!
+        assertEquals(rows.size + 1, out.size)
+        assertEquals(today, out[4].localDate)
+        assertEquals("الملك", out[4].majorText)
+        assertEquals(Tracks.MAJOR, out[4].tracks)
+        assertFalse(out[4].hasLesson)
+        assertEquals("نوح", out[5].majorText)
+        assertEquals(rows[4].lesson, out[5].lesson)
+        assertNull(out[6].majorText)
+        assertEquals(rows[5].lesson, out[6].lesson)
+
+        // In a plan of reviews only it is the main item: the plan ends a session earlier.
+        val (reviews, reviewBuilt) = plan(PlanSettings(startDate = d(11, 1), includeNew = false, majorMode = MajorMode.RANGE))
+        val reviewRows = reviewBuilt.mapIndexed { i, r -> if (i <= 1) r.copy(majorDone = true) else r }
+        val main = Repeats.advanceOptions(reviews, reviewRows, 2, d(11, 4)).single()
+        assertTrue(main.main)
+        assertEquals(reviewRows[reviewRows.size - 2].localDate, main.finishAfter)
+        val moved = Repeats.advance(reviews, reviewRows, 2, Item.MAJOR, d(11, 4))!!
+        assertEquals(reviewRows.size, moved.size)
+        assertEquals(d(11, 4), moved[2].localDate)
+        assertEquals(reviewRows[2].majorRange, moved[2].majorRange)
+        assertEquals(reviewRows[3].majorRange, moved[3].majorRange)
+    }
+
+    @Test
     fun lessonsMovingPastAnExtraReviewKeepTheTableInOrder() {
         val (plan, built) = plan()
         val at = 3
