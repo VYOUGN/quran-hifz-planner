@@ -32,6 +32,7 @@ import com.sallo.hifz.plan.PlanStats
 import com.sallo.hifz.plan.StatRow
 import com.sallo.hifz.plan.Stats
 import com.sallo.hifz.quran.RangeFormatter
+import com.sallo.hifz.quran.RangeParser
 import com.sallo.hifz.quran.Ranges
 import com.sallo.hifz.plan.CatchUp
 import kotlinx.coroutines.Dispatchers
@@ -310,7 +311,9 @@ internal fun buildRows(plan: PlanEntity, sessions: List<SessionEntity>, today: L
                 add(offDay(Item.NEW))
             } else if (s.includeNew) {
                 val gen = se.lessonOrNull?.let { RangeFormatter.format(it) } ?: RangeFormatter.NONE
-                val sub = if (se.newText == null) se.lessonOrNull?.let { pages(it, s.newPortion.unit, s.newPortion.amount) } else null
+                // Typed by hand: its pages when it reads as a passage.
+                val shown = if (se.newText == null) listOfNotNull(se.lessonOrNull) else RangeParser.parse(se.newText).orEmpty()
+                val sub = pages(shown, s.newPortion.unit, s.newPortion.amount)
                 add(ItemUi(Item.NEW, se.newText ?: gen, gen, sub, se.newDone, grade(se, Item.NEW), empty = !se.hasLesson, mistakes = se.newMistakes, alerts = se.newAlerts))
             }
             if (s.hasMinor && !se.has(Item.MINOR)) {
@@ -326,7 +329,7 @@ internal fun buildRows(plan: PlanEntity, sessions: List<SessionEntity>, today: L
                 val parts = se.majorParts
                 val gen = PlanText.generatedMajor(parts)
                 val text = se.majorText ?: gen
-                val sub = if (se.majorText == null) pages(parts, s.majorPortion.unit, s.majorPortion.amount) else null
+                val sub = pages(if (se.majorText == null) parts else RangeParser.parse(se.majorText).orEmpty(), s.majorPortion.unit, s.majorPortion.amount)
                 val empty = text.isBlank()
                 add(ItemUi(Item.MAJOR, text, gen, sub, se.majorDone, grade(se, Item.MAJOR), empty, writable = empty && !s.hasAutoMajor, mistakes = se.majorMistakes, alerts = se.majorAlerts))
             }

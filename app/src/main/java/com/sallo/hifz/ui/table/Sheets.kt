@@ -2,6 +2,14 @@
 
 package com.sallo.hifz.ui.table
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import com.sallo.hifz.quran.Quran
+import com.sallo.hifz.quran.RangeParser
+import com.sallo.hifz.quran.Ranges
 import com.sallo.hifz.data.AdvanceOptions
 import com.sallo.hifz.data.RemoveOptions
 import com.sallo.hifz.data.RepeatOptions
@@ -105,21 +113,33 @@ fun RowSheet(
     var note by remember { mutableStateOf(s.note.orEmpty()) }
     var counts by remember { mutableStateOf(Item.entries.associateWith { s.mistakes(it) to s.alerts(it) }) }
     var postponing by remember { mutableStateOf(false) }
-    var pickingSurahs by remember { mutableStateOf(false) }
     var repeating by remember { mutableStateOf<Item?>(null) }
+    // «اختر المقطع»: passages picked by surah and ayah are stored as ranges, so they get their pages.
+    var picked by remember { mutableStateOf(emptyMap<Item, IntRange>()) }
+    var typing by remember { mutableStateOf(emptySet<Item>()) }
+    var choosing by remember { mutableStateOf<Item?>(null) }
 
     fun result(): SessionEntity {
         var out = s.copy(note = note.trim().ifEmpty { null })
         for (item in row.items.filterNot { it.offDay }) {
             val text = texts[item.item].orEmpty()
+            val range = picked[item.item]
             out = when (item.item) {
-                Item.NEW -> out.copy(newText = override(text, item.generated), newDone = done.getValue(Item.NEW), newGrade = grades.getValue(Item.NEW))
-                Item.MINOR -> out.copy(minorText = override(text, item.generated), minorDone = done.getValue(Item.MINOR), minorGrade = grades.getValue(Item.MINOR))
-                Item.MAJOR -> out.copy(
-                    majorText = if (item.generated.isNotEmpty()) override(text, item.generated) else text.trim().ifEmpty { null },
-                    majorDone = done.getValue(Item.MAJOR),
-                    majorGrade = grades.getValue(Item.MAJOR),
-                )
+                Item.NEW -> if (range != null) {
+                    out.copy(lessonStart = range.first, lessonEnd = range.last, newText = null)
+                } else {
+                    out.copy(newText = override(text, item.generated))
+                }.copy(newDone = done.getValue(Item.NEW), newGrade = grades.getValue(Item.NEW))
+                Item.MINOR -> if (range != null) {
+                    out.copy(minorRanges = Ranges.encode(listOf(range)), minorText = null)
+                } else {
+                    out.copy(minorText = override(text, item.generated))
+                }.copy(minorDone = done.getValue(Item.MINOR), minorGrade = grades.getValue(Item.MINOR))
+                Item.MAJOR -> if (range != null) {
+                    out.copy(majorStart = range.first, majorEnd = range.last, majorLead = "", majorText = null)
+                } else {
+                    out.copy(majorText = if (item.generated.isNotEmpty()) override(text, item.generated) else text.trim().ifEmpty { null })
+                }.copy(majorDone = done.getValue(Item.MAJOR), majorGrade = grades.getValue(Item.MAJOR))
                 Item.PREP -> out.copy(prepText = override(text, item.generated), prepDone = done.getValue(Item.PREP), prepGrade = grades.getValue(Item.PREP))
             }
             val (mistakes, alerts) = counts.getValue(item.item)
@@ -165,7 +185,8 @@ fun RowSheet(
                         // A passing grade ticks the item; one to repeat leaves it open.
                         if (level != null) done = done + (item.item to level.passed)
                     },
-                    onPickSurahs = if (item.item == Item.MAJOR) ({ pickingSurahs = true }) else null,
+                    typing = item.item in typing,
+                    onChoose = { choosing = item.item },
                     counts = if (item.item == Item.PREP) null else counts.getValue(item.item),
                     onCounts = { counts = counts + (item.item to it) },
                 )
@@ -285,12 +306,22 @@ fun RowSheet(
             },
         )
     }
-    if (pickingSurahs) {
-        SurahSpanDialog(
-            onDismiss = { pickingSurahs = false },
-            onPick = { a, b ->
-                texts = texts + (Item.MAJOR to RangeFormatter.surahSpan(a, b))
-                pickingSurahs = false
+    choosing?.let { item ->
+        val shown = picked[item]?.let { listOf(it) } ?: RangeParser.parse(texts[item])
+        PassageDialog(
+            title = "اختر ${item.label}",
+            initial = shown?.let { it.minOf { r -> r.first }..it.maxOf { r -> r.last } },
+            onDismiss = { choosing = null },
+            onWrite = {
+                choosing = null
+                typing = typing + item
+                picked = picked - item
+            },
+            onPick = { range ->
+                choosing = null
+                typing = typing - item
+                picked = picked + (item to range)
+                texts = texts + (item to RangeFormatter.format(range))
             },
         )
     }
@@ -306,7 +337,9 @@ private fun ItemEditor(
     scale: GradeScale,
     score: Int,
     onGrade: (GradeLevel?) -> Unit,
-    onPickSurahs: (() -> Unit)?,
+    /** Written by hand instead of picked. */
+    typing: Boolean,
+    onChoose: () -> Unit,
     /** Mistakes and alerts («عدد الأخطاء»); null for preparation, which is not recited. */
     counts: Pair<Int?, Int?>?,
     onCounts: (Pair<Int?, Int?>) -> Unit,
@@ -324,13 +357,17 @@ private fun ItemEditor(
             Text("تم", style = MaterialTheme.typography.bodyMedium)
             Checkbox(checked = done, onCheckedChange = onDone)
         }
-        OutlinedTextField(
-            value = text,
-            onValueChange = onText,
-            placeholder = if (item == Item.MAJOR) ({ Text("مثلاً: الرحمن - الواقعة") }) else null,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (onPickSurahs != null) TextButton(onClick = onPickSurahs) { Text("اختيار من السور") }
+        if (typing) {
+            OutlinedTextField(
+                value = text,
+                onValueChange = onText,
+                placeholder = if (item == Item.MAJOR) ({ Text("مثلاً: الرحمن - الواقعة") }) else null,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextButton(onClick = onChoose) { Text("اختر من السور والآيات") }
+        } else {
+            PassageField(text, onChoose)
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             val selected = scale.levelOf(score)
             scale.levels.forEach { level ->
@@ -531,41 +568,134 @@ private fun AdvanceDialog(options: List<AdvanceOptions>, onDismiss: () -> Unit, 
     )
 }
 
+/** The passage of a lesson or review, tapped to pick it by surah and ayah, with its pages under it. */
 @Composable
-private fun SurahSpanDialog(onDismiss: () -> Unit, onPick: (Int, Int) -> Unit) {
-    var from by remember { mutableStateOf(1) }
-    var to by remember { mutableStateOf(1) }
+private fun PassageField(text: String, onClick: () -> Unit) {
+    val pages = RangeParser.parse(text)?.let { ranges ->
+        ranges.joinToString("، ") { RangeFormatter.pageLabel(it, halves = false) }
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text.ifBlank { "اختر المقطع" },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (text.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            )
+            if (pages != null) Hint(pages)
+        }
+        Text("تغيير", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/**
+ * «اختر المقطع»: from a surah and ayah to a surah and ayah, with the passage and its pages as it
+ * reads. [onWrite] goes back to writing it by hand.
+ */
+@Composable
+private fun PassageDialog(title: String, initial: IntRange?, onDismiss: () -> Unit, onWrite: () -> Unit, onPick: (IntRange) -> Unit) {
+    val start = initial?.first ?: Quran.surahRange(1).first
+    val end = initial?.last ?: Quran.surahRange(1).last
+    var s1 by remember { mutableStateOf(Quran.surahOf(start)) }
+    var a1 by remember { mutableStateOf(Quran.ayahOf(start)) }
+    var s2 by remember { mutableStateOf(Quran.surahOf(end)) }
+    var a2 by remember { mutableStateOf(Quran.ayahOf(end)) }
     var picking by remember { mutableStateOf<String?>(null) }
+    val x = Quran.index(s1, a1)
+    val y = Quran.index(s2, a2)
+    val range = minOf(x, y)..maxOf(x, y)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("المراجعة الكبرى") },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("من سورة")
-                SurahButton(from, Modifier.fillMaxWidth()) { picking = "from" }
-                Text("إلى سورة")
-                SurahButton(to, Modifier.fillMaxWidth()) { picking = "to" }
-                Hint(RangeFormatter.surahSpan(from, to))
+                Text("من")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SurahButton(s1, Modifier.weight(1f)) { picking = "s1" }
+                    OutlinedButton(onClick = { picking = "a1" }) { Text("آية $a1") }
+                }
+                Text("إلى")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SurahButton(s2, Modifier.weight(1f)) { picking = "s2" }
+                    OutlinedButton(onClick = { picking = "a2" }) { Text("آية $a2") }
+                }
+                Text(RangeFormatter.format(range), fontWeight = FontWeight.Bold)
+                Hint(RangeFormatter.pageLabel(range, halves = false))
+                TextButton(onClick = onWrite) { Text("أكتبه بنفسي") }
             }
         },
-        confirmButton = { TextButton(onClick = { onPick(from, to) }) { Text("تم") } },
+        confirmButton = { TextButton(onClick = { onPick(range) }) { Text("تم") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
     )
-    picking?.let { which ->
-        SurahPickerDialog(
-            title = if (which == "from") "من سورة" else "إلى سورة",
+    when (val which = picking) {
+        "s1", "s2" -> SurahPickerDialog(
+            title = if (which == "s1") "من سورة" else "إلى سورة",
             onDismiss = { picking = null },
             onPick = { n ->
-                if (which == "from") {
-                    from = n
-                    if (to < n) to = n
+                if (which == "s1") {
+                    s1 = n
+                    a1 = 1
+                    if (s2 < n) {
+                        s2 = n
+                        a2 = Quran.ayahCount(n)
+                    }
                 } else {
-                    to = n
+                    s2 = n
+                    a2 = Quran.ayahCount(n)
+                    if (s1 > n) {
+                        s1 = n
+                        a1 = 1
+                    }
                 }
                 picking = null
             },
         )
+        "a1", "a2" -> AyahPickerDialog(
+            title = if (which == "a1") "من آية" else "إلى آية",
+            count = Quran.ayahCount(if (which == "a1") s1 else s2),
+            current = if (which == "a1") a1 else a2,
+            onDismiss = { picking = null },
+            onPick = { n ->
+                if (which == "a1") a1 = n else a2 = n
+                picking = null
+            },
+        )
     }
+}
+
+/** Ayah numbers of a surah to tap. */
+@Composable
+private fun AyahPickerDialog(title: String, count: Int, current: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            LazyVerticalGrid(columns = GridCells.Fixed(5), modifier = Modifier.heightIn(max = 400.dp)) {
+                items((1..count).toList()) { n ->
+                    Box(
+                        Modifier
+                            .padding(3.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (n == current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            )
+                            .clickable { onPick(n) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("$n") }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+    )
 }
 
 @Composable
