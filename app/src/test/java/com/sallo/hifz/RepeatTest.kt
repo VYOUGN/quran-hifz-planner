@@ -328,6 +328,38 @@ class RepeatTest {
     }
 
     @Test
+    fun anItemTakenOutOfTodayLeavesTheRestAlone() {
+        val (plan, built) = plan()
+        val today = built[3].localDate // Sunday 8 November
+        val rows = built.toMutableList().apply { set(3, get(3).copy(majorText = "الملك", majorMistakes = 2)) }
+        assertTrue(Repeats.removeOptions(plan, rows, 4, today).isEmpty())
+        val opts = Repeats.removeOptions(plan, rows, 3, today)
+        assertEquals(listOf(Item.NEW, Item.MINOR, Item.MAJOR), opts.map { it.item })
+        assertTrue(opts.none { it.sessionGoes })
+
+        val noLesson = Repeats.remove(plan, rows, 3, Item.NEW, today)!!
+        assertEquals(rows.size, noLesson.size)
+        assertFalse(noLesson[3].hasLesson)
+        assertFalse(noLesson[3].has(Item.NEW))
+        assertEquals(rows[3].minorRanges, noLesson[3].minorRanges)
+        assertEquals("الملك", noLesson[3].majorText)
+        for (k in rows.indices) if (k != 3) assertEquals(rows[k], noLesson[k])
+
+        val noMajor = Repeats.remove(plan, rows, 3, Item.MAJOR, today)!!
+        assertNull(noMajor[3].majorText)
+        assertNull(noMajor[3].majorMistakes)
+        assertFalse(noMajor[3].has(Item.MAJOR))
+        assertEquals(rows[3].lesson, noMajor[3].lesson)
+
+        // The first session has only its lesson: taking it out takes the session away.
+        val single = Repeats.removeOptions(plan, built, 0, d(11, 1)).single()
+        assertTrue(single.sessionGoes)
+        val gone = Repeats.remove(plan, built, 0, Item.NEW, d(11, 1))!!
+        assertEquals(built.size - 1, gone.size)
+        assertEquals(built[1].copy(idx = 0), gone[0])
+    }
+
+    @Test
     fun lessonsMovingPastAnExtraReviewKeepTheTableInOrder() {
         val (plan, built) = plan()
         val at = 3

@@ -292,6 +292,16 @@ fun PlanTableScreen(
                     vm.advance(edited, option)
                     openRow = null
                 },
+                removesFor = { edited ->
+                    state.plan?.let { plan ->
+                        val rows = state.rows.map { it.session }.toMutableList().apply { set(row.index, edited) }
+                        Repeats.removeOptions(plan, rows, row.index, LocalDate.now())
+                    }.orEmpty()
+                },
+                onRemove = { edited, option ->
+                    vm.remove(edited, option)
+                    openRow = null
+                },
             )
         }
     }

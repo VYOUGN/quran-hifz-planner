@@ -3,6 +3,7 @@
 package com.sallo.hifz.ui.table
 
 import com.sallo.hifz.data.AdvanceOptions
+import com.sallo.hifz.data.RemoveOptions
 import com.sallo.hifz.data.RepeatOptions
 import com.sallo.hifz.data.RepeatWay
 import androidx.compose.material3.Surface
@@ -93,6 +94,9 @@ fun RowSheet(
     /** «تقديم» of the row as the sheet has it: its lesson or review brought to today, when it is the next one. */
     advancesFor: (SessionEntity) -> List<AdvanceOptions> = { emptyList() },
     onAdvance: (SessionEntity, AdvanceOptions) -> Unit = { _, _ -> },
+    /** «احذف من اليوم» for today's session as the sheet has it. */
+    removesFor: (SessionEntity) -> List<RemoveOptions> = { emptyList() },
+    onRemove: (SessionEntity, RemoveOptions) -> Unit = { _, _ -> },
 ) {
     val s = row.session
     var texts by remember { mutableStateOf(row.items.associate { it.item to if (it.empty) "" else it.text }) }
@@ -127,6 +131,8 @@ fun RowSheet(
     val repeats = remember(texts) { repeatsFor(result()) }
     val advances = remember(texts) { advancesFor(result()) }
     var advancing by remember { mutableStateOf(false) }
+    val removes = remember(texts) { removesFor(result()) }
+    var removing by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
@@ -213,6 +219,11 @@ fun RowSheet(
                     OutlinedButton(onClick = { advancing = true }, modifier = Modifier.fillMaxWidth()) { Text("قدّم $label لليوم") }
                 }
             }
+            if (removes.isNotEmpty()) {
+                TextButton(onClick = { removing = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("احذف من اليوم", color = MaterialTheme.colorScheme.error)
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (row.hasDate) {
                     OutlinedButton(onClick = { postponing = true }, modifier = Modifier.weight(1f)) { Text("تأجيل") }
@@ -240,6 +251,16 @@ fun RowSheet(
             onPick = {
                 postponing = false
                 onPostpone(it)
+            },
+        )
+    }
+    if (removing) {
+        RemoveDialog(
+            options = removes,
+            onDismiss = { removing = false },
+            onPick = { option ->
+                removing = false
+                onRemove(result(), option)
             },
         )
     }
@@ -432,6 +453,43 @@ private fun RepeatDialog(options: List<RepeatOptions>, initial: Item, onDismiss:
             }
         },
         confirmButton = { TextButton(onClick = { onPick(o, way) }) { Text(if (o.feminine) "أعدها" else "أعده") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+    )
+}
+
+/** «احذف من اليوم»: a lesson or review taken out of today's session; the sessions after it stay. */
+@Composable
+private fun RemoveDialog(options: List<RemoveOptions>, onDismiss: () -> Unit, onPick: (RemoveOptions) -> Unit) {
+    var item by remember { mutableStateOf(options.firstOrNull()?.item) }
+    val o = options.firstOrNull { it.item == item } ?: options.firstOrNull() ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("احذف ${o.noun} من اليوم") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (options.size > 1) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        options.forEach { c ->
+                            FilterChip(selected = c.item == o.item, onClick = { item = c.item }, label = { Text(c.item.label) })
+                        }
+                    }
+                }
+                Text(
+                    if (o.item == Item.NEW) {
+                        "ينشال الدرس من جلسة اليوم، والدروس بعده على حالها، فهذا المقطع ما تحفظه في الخطة."
+                    } else {
+                        "تنشال ${o.noun} من جلسة اليوم، واللي بعدها على حالها."
+                    },
+                )
+                if (o.sessionGoes) Hint("ما يبقى شي في جلسة اليوم، فتنحذف.")
+                Hint("اللي سجّلته عليه اليوم ينحذف معه، وتقدر تتراجع.")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onPick(o) }) {
+                Text(if (o.feminine) "احذفها" else "احذفه", color = MaterialTheme.colorScheme.error)
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
     )
 }

@@ -1,6 +1,7 @@
 package com.sallo.hifz.ui.table
 
 import com.sallo.hifz.data.AdvanceOptions
+import com.sallo.hifz.data.RemoveOptions
 import com.sallo.hifz.data.RepeatOptions
 import com.sallo.hifz.data.RepeatWay
 import androidx.lifecycle.ViewModel
@@ -207,6 +208,16 @@ class TableViewModel(private val app: HifzApp, planId: Long) : ViewModel() {
                 option.item == Item.NEW -> "صار الدرس الجاي اليوم، والدروس بعده تقدّمت جلسة"
                 else -> "صارت ${option.noun} الجاية اليوم، واللي بعدها تقدّمت جلسة"
             }
+            _undo.emit(Undoable(message, plan.id, before))
+        }
+    }
+
+    /** «احذف من اليوم»: takes the item of [option] out of today's session [edited]. */
+    fun remove(edited: SessionEntity, option: RemoveOptions) {
+        val plan = state.value.plan ?: return
+        viewModelScope.launch {
+            val before = repo.remove(plan, edited, option.item, LocalDate.now()) ?: return@launch
+            val message = if (option.sessionGoes) "حذفنا جلسة اليوم" else "شلنا ${option.noun} من جلسة اليوم"
             _undo.emit(Undoable(message, plan.id, before))
         }
     }

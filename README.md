@@ -36,6 +36,7 @@ An Android app that turns a Quran memorization plan into a day-by-day table: the
 - Missed lessons: move them forward automatically, catch up, or mark them done.
 - Too many mistakes? Repeat the lesson, the minor review or the major review. In the next session, a lesson or a major review takes the next one's place and every later one moves one session on, while a minor review is added to the next one. Or repeat it on a free day before its next session.
 - Ahead of the plan? Bring the next lesson or major review forward to today, and every later one moves one session earlier.
+- Take today's lesson or review out of today's session; the sessions after it stay as they are.
 - Vacations: lessons wait until after them, and they never break a streak.
 - Copy a plan, print the table or save it as PDF, and write sessions to the phone's calendar.
 
@@ -118,6 +119,7 @@ python tools/gen_widget_layouts.py app/src/main/res
 - الدروس الفائتة: ترحيل تلقائي، أو تكمّلها من جديد، أو تعوّضها، أو تعلّمها كمنجزة.
 - أخطاؤك كثيرة؟ تقدر تعيد الدرس أو المراجعة الصغرى أو الكبرى. في الجلسة الجاية: الدرس والمراجعة الكبرى ياخذون مكان اللي بعدهم، وكل واحد بعدهم يتأخر جلسة، والمراجعة الصغرى تنضاف للمراجعة الصغرى الجاية. أو تعيدها بجلسة زيادة في يوم فاضي قبل جلستها الجاية.
 - تبغى تسبق؟ قدّم الدرس الجاي أو المراجعة الكبرى الجاية لليوم، وكل واحد بعده يتقدّم جلسة.
+- احذف حفظ اليوم أو مراجعته من جلسة اليوم، والجلسات بعدها تبقى على حالها.
 - الإجازة: الدروس تتأجل لبعدها، وما تقطع «متتالية».
 - نسخ الخطة، وطباعة الجدول أو حفظه PDF، ونقل الجلسات إلى تقويم الجوال.
 

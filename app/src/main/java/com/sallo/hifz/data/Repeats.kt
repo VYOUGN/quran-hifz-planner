@@ -77,6 +77,20 @@ class AdvanceOptions(
 }
 
 /**
+ * «احذف من اليوم»: one item of today's session taken out of it. Only today changes: the sessions after
+ * it keep what they have, so a lesson taken out is not memorized in this plan.
+ */
+class RemoveOptions(
+    val item: Item,
+    val main: Boolean,
+    /** Nothing would be left of today's session, so it goes. */
+    val sessionGoes: Boolean,
+) {
+    val noun: String get() = itemNoun(item, main)
+    val feminine: Boolean get() = item != Item.NEW
+}
+
+/**
  * «إعادة»: a lesson or a review recited with too many mistakes is studied again.
  *
  * The main item moves with what belongs to it: the lesson with its preparation and, when the reviews
@@ -117,6 +131,25 @@ object Repeats {
         val row = rows.getOrNull(at) ?: return emptyList()
         val c = Repeat(plan, rows, at, today)
         return listOf(Item.NEW, Item.MAJOR).filter { c.recites(it, row) }.mapNotNull { c.advanceOptions(it) }
+    }
+
+    /** «احذف من اليوم»: the items of row [at] that can be taken out of it, when it is today's session. */
+    fun removeOptions(plan: PlanEntity, rows: List<SessionEntity>, at: Int, today: LocalDate): List<RemoveOptions> {
+        val row = rows.getOrNull(at) ?: return emptyList()
+        val c = Repeat(plan, rows, at, today)
+        if (!c.s.hasDates || row.localDate != today) return emptyList()
+        return listOf(Item.NEW, Item.MINOR, Item.MAJOR).filter { c.recites(it, row) }
+            .map { RemoveOptions(it, it == c.main, sessionGoes = c.removed(it) == null) }
+    }
+
+    /** The whole table, renumbered, after [item] is taken out of today's row [at]; null when it cannot. */
+    fun remove(plan: PlanEntity, rows: List<SessionEntity>, at: Int, item: Item, today: LocalDate): List<SessionEntity>? {
+        if (removeOptions(plan, rows, at, today).none { it.item == item }) return null
+        val c = Repeat(plan, rows, at, today)
+        val left = c.removed(item)
+        val out = rows.toMutableList().apply { if (left == null) removeAt(at) else set(at, left) }
+        val base = rows.first().idx
+        return out.mapIndexed { i, r -> r.copy(idx = base + i) }
     }
 
     /** The whole table, renumbered, after [item] of row [at] comes to today; null when it cannot. */
@@ -309,6 +342,17 @@ private class Repeat(val plan: PlanEntity, val rows: List<SessionEntity>, val at
             out.add(positionFor(out, extra.date), extra)
         }
         return out
+    }
+
+    /**
+     * This row without [item], its day off for it; null when nothing is left to do or written on it
+     * (then the session goes).
+     */
+    fun removed(item: Item): SessionEntity? {
+        val left = row.withoutPart(item, withMinor = false)
+            .let { if (item == Item.MAJOR) it.copy(tracks = it.tracks and Tracks.MAJOR.inv()) else it }
+        val keeps = listOf(Item.NEW, Item.MINOR, Item.MAJOR).any { recites(it, left) } || left.hasProgress()
+        return left.takeIf { keeps }
     }
 
     /** The rows from this one on that are sessions of [item]. */

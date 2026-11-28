@@ -569,7 +569,7 @@ internal fun TimeDialog(title: String, hour: Int, minute: Int, onDismiss: () -> 
 @Composable
 private fun About() {
     val uri = LocalUriHandler.current
-    Text("جدول الحفظ، الإصدار 3.3")
+    Text("جدول الحفظ، الإصدار 3.4")
     Text(
         "بيانات السور والآيات والأجزاء وصفحات مصحف المدينة من مشروع تنزيل، برخصة المشاع الإبداعي CC BY 3.0.",
         style = MaterialTheme.typography.bodySmall,
