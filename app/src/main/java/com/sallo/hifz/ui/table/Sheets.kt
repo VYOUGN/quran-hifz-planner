@@ -2,6 +2,10 @@
 
 package com.sallo.hifz.ui.table
 
+import com.sallo.hifz.data.RepeatOptions
+import com.sallo.hifz.data.RepeatWay
+import androidx.compose.material3.Surface
+import com.sallo.hifz.ui.components.OptionRow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.clickable
@@ -77,6 +81,11 @@ fun RowSheet(
     onDismiss: () -> Unit,
     onSave: (SessionEntity) -> Unit,
     onPostpone: (LocalDate) -> Unit,
+    /** «إعادة الدرس» for this row, or null when it is not a session to repeat. */
+    repeat: RepeatOptions? = null,
+    /** The row's main item: the lesson, or the major review in a plan of reviews only. */
+    mainItem: Item = Item.NEW,
+    onRepeat: (SessionEntity, RepeatWay) -> Unit = { _, _ -> },
 ) {
     val s = row.session
     var texts by remember { mutableStateOf(row.items.associate { it.item to if (it.empty) "" else it.text }) }
@@ -86,6 +95,7 @@ fun RowSheet(
     var counts by remember { mutableStateOf(Item.entries.associateWith { s.mistakes(it) to s.alerts(it) }) }
     var postponing by remember { mutableStateOf(false) }
     var pickingSurahs by remember { mutableStateOf(false) }
+    var repeating by remember { mutableStateOf(false) }
 
     fun result(): SessionEntity {
         var out = s.copy(note = note.trim().ifEmpty { null })
@@ -149,6 +159,27 @@ fun RowSheet(
                 label = { Text("ملاحظة") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (repeat != null) {
+                val what = if (mainItem == Item.NEW) "الدرس" else "المراجعة"
+                val score = grades.getValue(mainItem)
+                val struggled = (score in 1 until GradeLevel.PASS) || (counts.getValue(mainItem).first ?: 0) >= MANY_MISTAKES
+                val possible = repeat.blocked == null || repeat.extraDay != null
+                when {
+                    !possible -> Hint("إعادة $what: ${repeat.blocked}")
+                    struggled -> Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("أخطاؤك كثيرة في هذا $what. تبغى تعيده؟", fontWeight = FontWeight.Bold)
+                            Button(onClick = { repeating = true }, modifier = Modifier.fillMaxWidth()) { Text("أعد $what") }
+                        }
+                    }
+                    else -> OutlinedButton(onClick = { repeating = true }, modifier = Modifier.fillMaxWidth()) { Text("أعد $what") }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (row.hasDate) {
                     OutlinedButton(onClick = { postponing = true }, modifier = Modifier.weight(1f)) { Text("تأجيل") }
@@ -174,6 +205,17 @@ fun RowSheet(
             onPick = {
                 postponing = false
                 onPostpone(it)
+            },
+        )
+    }
+    if (repeating && repeat != null) {
+        RepeatDialog(
+            options = repeat,
+            what = if (mainItem == Item.NEW) "الدرس" else "المراجعة",
+            onDismiss = { repeating = false },
+            onPick = { way ->
+                repeating = false
+                onRepeat(result(), way)
             },
         )
     }
@@ -273,6 +315,48 @@ private fun CountStepper(label: String, value: Int?, modifier: Modifier, onChang
             Text("+", style = MaterialTheme.typography.titleMedium)
         }
     }
+}
+
+/** Mistakes on the main item from which «إعادة الدرس» is offered up front. */
+private const val MANY_MISTAKES = 5
+
+/** «أعد الدرس»: in place of the next session, or on a free day before it. */
+@Composable
+private fun RepeatDialog(options: RepeatOptions, what: String, onDismiss: () -> Unit, onPick: (RepeatWay) -> Unit) {
+    var way by remember { mutableStateOf(if (options.blocked == null) RepeatWay.NEXT_SESSION else RepeatWay.EXTRA_DAY) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("أعد $what") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Hint("هذي الجلسة تنحسب منجزة وتبقى أخطاؤها، والإعادة جلسة جديدة.")
+                if (options.blocked == null) {
+                    val day = options.nextDay?.let { " ${DateText.withWeekday(it)}" }.orEmpty()
+                    val finish = if (options.finishBefore != null && options.finishAfter != null) {
+                        " الختم يصير ${DateText.long(options.finishAfter)} بدل ${DateText.long(options.finishBefore)}."
+                    } else {
+                        ""
+                    }
+                    OptionRow(
+                        "في الجلسة الجاية$day",
+                        "بدل الدرس الجاي، وكل درس بعده ياخذ مكان اللي بعده.$finish",
+                        way == RepeatWay.NEXT_SESSION,
+                    ) { way = RepeatWay.NEXT_SESSION }
+                } else {
+                    Hint("في الجلسة الجاية: ${options.blocked}")
+                }
+                options.extraDay?.let { day ->
+                    OptionRow(
+                        "بجلسة زيادة ${DateText.withWeekday(day)}",
+                        "في يوم فاضي قبل الجلسة الجاية، وجدولك ما يتغيّر.",
+                        way == RepeatWay.EXTRA_DAY,
+                    ) { way = RepeatWay.EXTRA_DAY }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onPick(way) }) { Text("أعده") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+    )
 }
 
 @Composable

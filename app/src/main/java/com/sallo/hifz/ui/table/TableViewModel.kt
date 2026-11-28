@@ -1,5 +1,6 @@
 package com.sallo.hifz.ui.table
 
+import com.sallo.hifz.data.RepeatWay
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sallo.hifz.HifzApp
@@ -173,6 +174,19 @@ class TableViewModel(private val app: HifzApp, planId: Long) : ViewModel() {
                 CatchUp.SHIFT -> "رحّلنا الدروس الفائتة"
                 CatchUp.DAILY -> "صارت جلسة كل يوم لين ترجع لجدولك"
                 CatchUp.MARK_DONE -> "تعلّمت الدروس كمنجزة"
+            }
+            _undo.emit(Undoable(message, plan.id, before))
+        }
+    }
+
+    /** «إعادة الدرس»: saves [edited] and studies its lesson again by [way]. */
+    fun repeat(edited: SessionEntity, way: RepeatWay) {
+        val plan = state.value.plan ?: return
+        viewModelScope.launch {
+            val before = repo.repeat(plan, edited, way, LocalDate.now()) ?: return@launch
+            val message = when (way) {
+                RepeatWay.NEXT_SESSION -> "صار الدرس في الجلسة الجاية، والدروس بعده تأخّرت جلسة"
+                RepeatWay.EXTRA_DAY -> "أضفنا جلسة لإعادة الدرس"
             }
             _undo.emit(Undoable(message, plan.id, before))
         }

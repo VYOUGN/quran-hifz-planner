@@ -15,8 +15,8 @@ android {
         applicationId = "com.sallo.hifz"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "3.0"
+        versionCode = 16
+        versionName = "3.1"
     }
 
     buildTypes {

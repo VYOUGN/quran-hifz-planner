@@ -131,6 +131,28 @@ class PlanRepository(private val db: AppDatabase, private val onChanged: () -> U
         return before
     }
 
+    /**
+     * «إعادة الدرس»: [edited] (the row as the sheet left it) is saved, and its lesson is studied again
+     * by [way]. The row itself was recited, so it counts as done, with its grade and mistakes; left
+     * open it would be a missed lesson, and «ترحيل» would move the lessons a second time. Returns the
+     * rows as they were, for «تراجع», or null when [way] does not fit.
+     */
+    suspend fun repeat(plan: PlanEntity, recited: SessionEntity, way: RepeatWay, today: LocalDate): List<SessionEntity>? {
+        val edited = recited.withMainDone(plan)
+        val before = dao.sessions(plan.id)
+        val at = before.indexOfFirst { it.id == edited.id }
+        if (at < 0) return null
+        val rows = before.toMutableList().apply { set(at, edited) }
+        val after = Repeats.apply(plan, rows, at, way, today) ?: return null
+        db.withTransaction {
+            dao.updateSessions(listOf(edited))
+            dao.deleteSessionsFrom(plan.id, edited.idx + 1)
+            dao.insertSessions(after)
+        }
+        onChanged()
+        return before
+    }
+
     /** «إجازة»: adds [vacation] to the plan, and moves what is still to do out of it. */
     suspend fun addVacation(plan: PlanEntity, vacation: Vacation, today: LocalDate) =
         changeVacations(plan, vacation.start, today, pullBack = false) { (it + vacation).distinct() }

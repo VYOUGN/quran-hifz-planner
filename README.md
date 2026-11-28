@@ -34,6 +34,7 @@ An Android app that turns a Quran memorization plan into a day-by-day table: the
 - Gregorian and Hijri (Umm al-Qura) dates, with an adjustment of ±days.
 - Cards and table views, ticks, grades, notes, and mistake and alert counters for every recitation.
 - Missed lessons: move them forward automatically, catch up, or mark them done.
+- Too many mistakes? Repeat the lesson in place of the next session (every later lesson moves one session on), or on a free day before it.
 - Vacations: lessons wait until after them, and they never break a streak.
 - Copy a plan, print the table or save it as PDF, and write sessions to the phone's calendar.
 
@@ -114,6 +115,7 @@ python tools/gen_widget_layouts.py app/src/main/res
 - التاريخ الميلادي والهجري (أم القرى) مع تعديل الهجري.
 - عرض بالبطاقات أو بالجدول، مع التأشير والتقدير والملاحظات، وعدّاد «أخطاء» و«تنبيهات» لكل تسميع.
 - الدروس الفائتة: ترحيل تلقائي، أو تكمّلها من جديد، أو تعوّضها، أو تعلّمها كمنجزة.
+- أخطاؤك كثيرة؟ أعد الدرس بدل الجلسة الجاية (وكل درس بعده ياخذ مكان اللي بعده)، أو بجلسة زيادة في يوم فاضي قبلها.
 - الإجازة: الدروس تتأجل لبعدها، وما تقطع «متتالية».
 - نسخ الخطة، وطباعة الجدول أو حفظه PDF، ونقل الجلسات إلى تقويم الجوال.
 

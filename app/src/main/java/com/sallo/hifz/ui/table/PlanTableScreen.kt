@@ -2,6 +2,7 @@
 
 package com.sallo.hifz.ui.table
 
+import com.sallo.hifz.data.Repeats
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Share
@@ -267,6 +268,14 @@ fun PlanTableScreen(
                 },
                 onPostpone = { date ->
                     vm.postpone(row.index, date)
+                    openRow = null
+                },
+                repeat = remember(row, state.rows, state.plan) {
+                    state.plan?.let { plan -> Repeats.options(plan, state.rows.map { it.session }, row.index, LocalDate.now()) }
+                },
+                mainItem = if (state.plan?.includeNew == false) Item.MAJOR else Item.NEW,
+                onRepeat = { edited, way ->
+                    vm.repeat(edited, way)
                     openRow = null
                 },
             )
